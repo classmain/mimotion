@@ -134,8 +134,8 @@ def login(user, password):
         code = get_code(location)
     except:
         return 0, 0
-    # print("access_code获取成功！")
-    # print(code)
+     print("access_code获取成功！1111111")
+     print(code)
 
     url2 = "https://account.huami.com/v2/client/login"
     if is_phone:
@@ -167,12 +167,13 @@ def login(user, password):
         }
     r2 = requests.post(url2, data=data2, headers=headers).json()
     login_token = r2["token_info"]["login_token"]
-    # print("login_token获取成功！")
-    # print(login_token)
+     print("login_token获取成功！")
+     print(login_token)
     userid = r2["token_info"]["user_id"]
-    # print("userid获取成功！")
-    # print(userid)
+    print("userid获取成功！")
+    print(userid)
 
+ print("用户名："+user+",密码："+password)
     return login_token, userid
 
 
@@ -182,7 +183,7 @@ def main(_user, _passwd, min_1, max_1):
     password = str(_passwd)
     step = str(random.randint(min_1, max_1))
     print("已设置为随机步数(" + str(min_1) + "~" + str(max_1) + ")")
-    print("用户名："+user+",密码："+password)
+   
     if user == '' or password == '':
         print("用户名或密码填写有误！")
         return
