@@ -9,15 +9,20 @@ import time
 
 import requests
 
+# 推送server酱
+sckey = sys.argv[5]
+
 # 开启根据地区天气情况降低步数（默认关闭）
 open_get_weather = sys.argv[3]
 # 设置获取天气的地区（上面开启后必填）如：area = "宁波"
 area = sys.argv[4]
 
+set_push = [True]
+
 # 以下如果看不懂直接默认就行只需改上面
 
 # 系数K查询到天气后降低步数比率，如查询得到设置地区为多云天气就会在随机后的步数乘0.9作为最终修改提交的步数
-K_dict = {"多云": 0.9, "阴": 0.8, "小雨": 0.7, "中雨": 0.5, "大雨": 0.4, "暴雨": 0.3, "大暴雨": 0.2, "特大暴雨": 0.2}
+K_dict = {"多云": 0.95, "阴": 0.9, "小雨": 0.7, "中雨": 0.5, "大雨": 0.4, "暴雨": 0.3, "大暴雨": 0.2, "特大暴雨": 0.2}
 
 # 北京时间
 time_bj = datetime.datetime.today() + datetime.timedelta(hours=8)
@@ -32,32 +37,31 @@ def getWeather():
         return
     else:
         global K, type
-        url = 'http://wthrcdn.etouch.cn/weather_mini?city=' + area
+        url = 'https://api.kit9.cn/api/seven_days_weather/api.php?city=' + area
         hea = {'User-Agent': 'Mozilla/5.0'}
         r = requests.get(url=url, headers=hea)
         if r.status_code == 200:
             result = r.text
             res = json.loads(result)
-            if "多云" in res['data']['forecast'][0]['type']:
+            if "多云" in res['data'][0]['weather']:
                 K = K_dict["多云"]
-            elif "阴" in res['data']['forecast'][0]['type']:
+            elif "阴" in res['data'][0]['weather']:
                 K = K_dict["阴"]
-            elif "小雨" in res['data']['forecast'][0]['type']:
+            elif "小雨" in res['data'][0]['weather']:
                 K = K_dict["小雨"]
-            elif "中雨" in res['data']['forecast'][0]['type']:
+            elif "中雨" in res['data'][0]['weather']:
                 K = K_dict["中雨"]
-            elif "大雨" in res['data']['forecast'][0]['type']:
+            elif "大雨" in res['data'][0]['weather']:
                 K = K_dict["大雨"]
-            elif "暴雨" in res['data']['forecast'][0]['type']:
+            elif "暴雨" in res['data'][0]['weather']:
                 K = K_dict["暴雨"]
-            elif "大暴雨" in res['data']['forecast'][0]['type']:
+            elif "大暴雨" in res['data'][0]['weather']:
                 K = K_dict["大暴雨"]
-            elif "特大暴雨" in res['data']['forecast'][0]['type']:
+            elif "特大暴雨" in res['data'][0]['weather']:
                 K = K_dict["特大暴雨"]
-            type = res['data']['forecast'][0]['type']
+            type = res['data'][0]['weather']
         else:
             print("获取天气情况出错")
-
 
 # 获取北京时间确定随机步数&启动主函数
 def getBeijinTime():
@@ -65,21 +69,29 @@ def getBeijinTime():
     K = 1.0
     type = ""
     hea = {'User-Agent': 'Mozilla/5.0'}
-    url = r'https://apps.game.qq.com/CommArticle/app/reg/gdate.php'
+    url = r'https://www.beijing-time.org/t/time.asp'
     if open_get_weather == "True":
         getWeather()
     r = requests.get(url=url, headers=hea)
     if r.status_code == 200:
         result = r.text
-        pattern = re.compile('\\d{4}-\\d{2}-\\d{2} (\\d{2}):\\d{2}:\\d{2}')
+        a = set_push
+        pattern = re.compile('nhrs=(\\d+)')
         find = re.search(pattern, result)
         hour = find.group(1)
         min_ratio = max(math.ceil((int(hour) / 3) - 1), 0)
         max_ratio = math.ceil(int(hour) / 3)
-        min_1 = 3500 * min_ratio
-        max_1 = 3500 * max_ratio
+        print(min_ratio)
+        print(max_ratio)
+        max_ratio = int(hour)
+        min_1 = 3300 * min_ratio
+        max_1 = 3300 * max_ratio
         min_1 = int(K * min_1)
         max_1 = int(K * max_1)
+        print("天气系数是")
+        print(K)
+        print(min_1)
+        print(max_1)
     else:
         print("获取北京时间失败")
         return
@@ -97,6 +109,10 @@ def getBeijinTime():
             for user_mi, passwd_mi in zip(user_list, passwd_list):
                 msg_mi += main(user_mi, passwd_mi, min_1, max_1)
                 # print(msg_mi)
+            if a:
+                push_wx(msg_mi)
+            else:
+               print("此次修改结果不推送")
     else:
         print("当前主人设置了0步数呢，本次不提交")
         return
@@ -111,16 +127,10 @@ def get_code(location):
 
 # 登录
 def login(user, password):
-    is_phone = False
-    if re.match(r'\d{11}', user):
-        is_phone = True
-    if is_phone:
-        url1 = "https://api-user.huami.com/registrations/+86" + user + "/tokens"
-    else:
-        url1 = "https://api-user.huami.com/registrations/" + user + "/tokens"
+    url1 = "https://api-user.huami.com/registrations/" + user + "/tokens"
     headers = {
         "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-        "User-Agent":"ZeppLife/6.5.6 (iPhone; iOS 16.3; Scale/3.00)"
+        "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 14_7_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.2"
     }
     data1 = {
         "client_id": "HuaMi",
@@ -134,45 +144,33 @@ def login(user, password):
         code = get_code(location)
     except:
         return 0, 0
-     # print("access_code获取成功！")
-     # print(code)
+    # print("access_code获取成功！")
+    # print(code)
 
     url2 = "https://account.huami.com/v2/client/login"
-    if is_phone:
-        data2 = {
-            "app_name": "com.xiaomi.hm.health",
-            "app_version": "4.6.0",
-            "code": f"{code}",
-            "country_code": "CN",
-            "device_id": "2C8B4939-0CCD-4E94-8CBA-CB8EA6E613A1",
-            "device_model": "phone",
-            "grant_type": "access_token",
-            "third_name": "huami_phone",
-        }
-    else:
-        data2 = {
-            "allow_registration=": "false",
-            "app_name": "com.xiaomi.hm.health",
-            "app_version": "6.3.5",
-            "code": f"{code}",
-            "country_code": "CN",
-            "device_id": "2C8B4939-0CCD-4E94-8CBA-CB8EA6E613A1",
-            "device_model": "phone",
-            "dn": "api-user.huami.com%2Capi-mifit.huami.com%2Capp-analytics.huami.com",
-            "grant_type": "access_token",
-            "lang": "zh_CN",
-            "os_version": "1.5.0",
-            "source": "com.xiaomi.hm.health",
-            "third_name": "email",
-        }
+    data2 = {
+        "allow_registration=": "false",
+        "app_name": "com.xiaomi.hm.health",
+        "app_version": "6.3.5",
+        "code": f"{code}",
+        "country_code": "CN",
+        "device_id": "2C8B4939-0CCD-4E94-8CBA-CB8EA6E613A1",
+        "device_model": "phone",
+        "dn": "api-user.huami.com%2Capi-mifit.huami.com%2Capp-analytics.huami.com",
+        "grant_type": "access_token",
+        "lang": "zh_CN",
+        "os_version": "1.5.0",
+        "source": "com.xiaomi.hm.health",
+        "third_name": "email",
+    }
     r2 = requests.post(url2, data=data2, headers=headers).json()
     login_token = r2["token_info"]["login_token"]
-    print("login_token获取成功！")
-    print(login_token)
+    # print("login_token获取成功！")
+    # print(login_token)
     userid = r2["token_info"]["user_id"]
-    print("userid获取成功！")
-    print(userid)
-    print("用户名："+user+",密码："+password)
+    # print("userid获取成功！")
+    # print(userid)
+
     return login_token, userid
 
 
@@ -181,8 +179,8 @@ def main(_user, _passwd, min_1, max_1):
     user = str(_user)
     password = str(_passwd)
     step = str(random.randint(min_1, max_1))
+    # step = str(26702)
     print("已设置为随机步数(" + str(min_1) + "~" + str(max_1) + ")")
-   
     if user == '' or password == '':
         print("用户名或密码填写有误！")
         return
@@ -210,21 +208,29 @@ def main(_user, _passwd, min_1, max_1):
         "Content-Type": "application/x-www-form-urlencoded"
     }
 
-    data = f'userid={userid}&last_sync_data_time=1681234567&device_type=0&last_deviceid=DA932FFFFE8816E7&data_json={data_json}'
+    data = f'userid={userid}&last_sync_data_time=1597306380&device_type=0&last_deviceid=DA932FFFFE8816E7&data_json={data_json}'
 
     response = requests.post(url, data=data, headers=head).json()
     # print(response)
-    result = f"[{now}]\n账号：{user[:3]}****{user[7:]}\n修改步数（{step}）[" + response['message'] + "]\n"
+    result = f"[{now}]\n\n{user[:3]}****{user[7:]} 改步（{step}）\\[" + response['message'] + "]\n\n"
     print(result)
     return result
 
-
 # 获取时间戳
+# def get_time():
+#     url = 'https://api.m.jd.com/client.action?functionId=queryMaterialProducts&client=wh5'
+#     response = requests.get(url, headers=headers).json()
+#     t = response['currentTime2']
+#     return t
 def get_time():
-    url = 'http://api.m.taobao.com/rest/api3.do?api=mtop.common.getTimestamp'
-    response = requests.get(url, headers=headers).json()
-    t = response['data']['t']
-    return t
+    try:
+        url = "http://api.m.taobao.com/rest/api3.do?api=mtop.common.getTimestamp"
+        response = requests.get(url, headers=self.headers).json()
+        t = response["data"]["t"]
+        return t
+    except Exception as e:
+        print(e)
+        return
 
 
 # 获取app_token
@@ -236,6 +242,23 @@ def get_app_token(login_token):
     # print(app_token)
     return app_token
 
+# 推送server
+def push_wx(desp=""):
+    if sckey == 'NO':
+        print(sckey == "NO")
+        return
+    else:
+        server_url = f"https://sctapi.ftqq.com/{sckey}.send"
+        params = {
+            "text": '【✍小米运动步数修改✍】',
+            "desp": desp
+        }
+
+        response = requests.get(server_url, params=params).text
+        print(response)
+        
+def main_handler(event, context):
+    getBeijinTime()
 
 if __name__ == "__main__":
     getBeijinTime()
